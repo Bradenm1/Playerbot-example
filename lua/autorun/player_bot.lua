@@ -9,8 +9,11 @@ local options = {
 	FindRandomPosition 	= 5,
 	MinIdleDelay		= 1,
 	MaxIdleDelay		= 3,
+	MinRandRange		= -500,
+	MaxRandRange		= 500,
 	WanderingMovingSpeed= 90,
-	ChasingMovingSpeed	= 170
+	ChasingMovingSpeed	= 170,
+	TargetRange			= 500
 }
 
 ----------------------------------------------------
@@ -89,6 +92,14 @@ local function get_random_idle_delay()
 end
 
 ----------------------------------------------------
+-- get_random_range()
+-- Gets a random number given the range settings
+----------------------------------------------------
+local function get_random_range()
+	return math.random(options.MinRandRange, options.MaxRandRange)
+end
+
+----------------------------------------------------
 -- set_key()
 -- Sets the key press for the bot
 ----------------------------------------------------
@@ -103,10 +114,9 @@ end
 -- Get a random position near given position
 ----------------------------------------------------
 local function get_random_position(pos)
-	local newXPos = pos.x + math.random(-500, 500)
-	local newYPos = pos.y + math.random(-500, 500)
-	local position = Vector(newXPos, newYPos, pos.z)
-	return position
+	local newXPos = pos.x + get_random_range()
+	local newYPos = pos.y + get_random_range()
+	return Vector(newXPos, newYPos, pos.z)
 end
 
 ----------------------------------------------------
@@ -136,19 +146,19 @@ local function update_action()
 			bot.idleDelay = CurTime() + get_random_idle_delay()
 		end
 	elseif bot.AIState == 2 then -- Wandering
-		bot:SetTarget(table.Random(get_players_within_radius(bot:GetPos(), 500)))
+		bot:SetTarget(table.Random(get_players_within_radius(bot:GetPos(), options.TargetRange)))
 		if (bot:GetTarget()) then
 			if (bot:GetTarget():Alive()) then 
-				if (get_distance_to_target() < 500) then
+				if (get_distance_to_target() < options.TargetRange) then -- Checks if target is within range to chase
 					bot.AIState = 3
 				end
 			end
 		end
-		if ((!bot.findRandomPositionDelay) || (CurTime() > bot.findRandomPositionDelay)) then 
+		if ((!bot.findRandomPositionDelay) || (CurTime() > bot.findRandomPositionDelay)) then -- Pick a new random position
 			bot.RandomPosition = get_random_position(bot:GetPos())
 			bot.findRandomPositionDelay = CurTime() + options.FindRandomPosition
 		else
-			if (bot:GetPos():Distance(bot.RandomPosition) < 128) then
+			if (bot:GetPos():Distance(bot.RandomPosition) < 128) then -- If near the random position then idle
 				bot.AIState = 1
 			end
 		end
@@ -157,10 +167,10 @@ local function update_action()
 			if (!bot:GetTarget():Alive()) then
 				bot.AIState = 2
 			else
-				if (get_distance_to_target() > 500) then
+				if (get_distance_to_target() > options.TargetRange) then -- Checks if target is within chasing range
 					bot.AIState = 2
 				else
-					if (get_within_hitting_range()) then
+					if (get_within_hitting_range()) then -- Check if the target is within range to hit
 						bot.AIState = 4
 					end
 				end
@@ -168,7 +178,7 @@ local function update_action()
 		end
 	elseif bot.AIState == 4 then -- Attack
 		if (bot:GetTarget()) then
-			if (!get_within_hitting_range()) then
+			if (!get_within_hitting_range()) then -- Checks if target is still within range
 				bot.AIState = 3
 			else
 				if (!bot:GetTarget():Alive()) then
