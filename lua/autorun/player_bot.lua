@@ -4,11 +4,11 @@ include("player_bot_names.lua")
 local cmd = nil -- Cmd for bot
 local bot = nil -- current Player bot
 
-local findRandomPositionDelay = 0
-
 local options = {
-	HittingRange = 92,
-	FindRandomPosition = 5
+	HittingRange 		= 92,
+	FindRandomPosition 	= 5,
+	MinIdleDelay		= 1,
+	MaxIdleDelay		= 3
 }
 
 ----------------------------------------------------
@@ -78,6 +78,10 @@ local function get_within_hitting_range()
 	if (dis < options.HittingRange) then return true else return false end
 end
 
+local function get_random_idle_delay()
+	return math.random(options.MinIdleDelay, options.MaxIdleDelay)
+end
+
 ----------------------------------------------------
 -- set_key()
 -- Sets the key press for the bot
@@ -88,6 +92,13 @@ local function set_key(IN_ENUM)
 	cmd:SetButtons(KeysPressed)
 end
 
+local function get_random_position(pos)
+	local newXPos = pos.x + math.random(-500, 500)
+	local newYPos = pos.y + math.random(-500, 500)
+	local position = Vector(newXPos, newYPos, pos.z)
+	return position
+end
+
 ----------------------------------------------------
 -- update_action()
 -- Updates the action of the entity
@@ -95,11 +106,23 @@ end
 local function update_action()
 	if bot.AIState == 0 then -- Nothing
 	elseif bot.AIState == 1 then -- Idle
+		if ((!bot.idleDelay) || (CurTime() > bot.idleDelay)) then
+			bot.AIState = 2
+			bot.idleDelay = CurTime() + get_random_idle_delay()
+		end
 	elseif bot.AIState == 2 then -- Wandering
 		bot:SetTarget(table.Random(player.GetHumans()))
 		if ((bot:GetTarget()) && (bot:GetTarget():Alive())) then
 			if (get_distance_to_target() < 500) then
 				bot.AIState = 3
+			end
+		end
+		if ((!bot.findRandomPositionDelay) || (CurTime() > bot.findRandomPositionDelay)) then 
+			bot.RandomPosition = get_random_position(bot:GetPos())
+			bot.findRandomPositionDelay = CurTime() + options.FindRandomPosition
+		else
+			if (bot:GetPos():Distance(bot.RandomPosition) < 128) then
+				bot.AIState = 1
 			end
 		end
 	elseif bot.AIState == 3 then -- Chase
@@ -141,11 +164,7 @@ local function perfom_action()
 	elseif bot.AIState == 1 then -- Idle
         cmd:SetForwardMove(0)
 	elseif bot.AIState == 2 then -- Wandering
-		if (CurTime() > findRandomPositionDelay) then -- HACK this statement should not be here
-			local randomPosition = Vector(bot:GetPos().x + math.random(-500, 500) , bot:GetPos().y + math.random(-500, 500), bot:GetPos().z)
-			look_at_pos(randomPosition)
-			findRandomPositionDelay = CurTime() + options.FindRandomPosition
-		end
+		look_at_pos(bot.RandomPosition)
 		set_key(IN_FORWARD)
 		cmd:SetForwardMove(170)
 	elseif bot.AIState == 3 then -- Chase
