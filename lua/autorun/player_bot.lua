@@ -8,7 +8,9 @@ local options = {
 	HittingRange 		= 92,
 	FindRandomPosition 	= 5,
 	MinIdleDelay		= 1,
-	MaxIdleDelay		= 3
+	MaxIdleDelay		= 3,
+	WanderingMovingSpeed= 90,
+	ChasingMovingSpeed	= 170
 }
 
 ----------------------------------------------------
@@ -78,6 +80,10 @@ local function get_within_hitting_range()
 	if (dis < options.HittingRange) then return true else return false end
 end
 
+----------------------------------------------------
+-- get_random_idle_delay()
+-- Gets a random number given the idling delay settings
+----------------------------------------------------
 local function get_random_idle_delay()
 	return math.random(options.MinIdleDelay, options.MaxIdleDelay)
 end
@@ -92,11 +98,30 @@ local function set_key(IN_ENUM)
 	cmd:SetButtons(KeysPressed)
 end
 
+----------------------------------------------------
+-- get_random_position()
+-- Get a random position near given position
+----------------------------------------------------
 local function get_random_position(pos)
 	local newXPos = pos.x + math.random(-500, 500)
 	local newYPos = pos.y + math.random(-500, 500)
 	local position = Vector(newXPos, newYPos, pos.z)
 	return position
+end
+
+----------------------------------------------------
+-- get_players_within_radius()
+-- Check for players within a given range at a certain position
+-- @param pos Vector: Position to search from
+-- @param pos Integer: Radius to search
+-- @return players Table: Players within range
+----------------------------------------------------
+local function get_players_within_radius(pos, radius)
+	local players = {}
+	for ___, ply in pairs(ents.FindInSphere(pos, radius)) do 
+		if ((ply:IsPlayer()) && (ply ~= bot)) then table.insert(players, ply) end
+	end
+	return players
 end
 
 ----------------------------------------------------
@@ -111,10 +136,12 @@ local function update_action()
 			bot.idleDelay = CurTime() + get_random_idle_delay()
 		end
 	elseif bot.AIState == 2 then -- Wandering
-		bot:SetTarget(table.Random(player.GetHumans()))
-		if ((bot:GetTarget()) && (bot:GetTarget():Alive())) then
-			if (get_distance_to_target() < 500) then
-				bot.AIState = 3
+		bot:SetTarget(table.Random(get_players_within_radius(bot:GetPos(), 500)))
+		if (bot:GetTarget()) then
+			if (bot:GetTarget():Alive()) then 
+				if (get_distance_to_target() < 500) then
+					bot.AIState = 3
+				end
 			end
 		end
 		if ((!bot.findRandomPositionDelay) || (CurTime() > bot.findRandomPositionDelay)) then 
@@ -166,11 +193,11 @@ local function perfom_action()
 	elseif bot.AIState == 2 then -- Wandering
 		look_at_pos(bot.RandomPosition)
 		set_key(IN_FORWARD)
-		cmd:SetForwardMove(170)
+		cmd:SetForwardMove(options.WanderingMovingSpeed)
 	elseif bot.AIState == 3 then -- Chase
 		look_at_pos(bot:GetTarget():GetPos())
         set_key(IN_FORWARD)
-		cmd:SetForwardMove(170)
+		cmd:SetForwardMove(options.ChasingMovingSpeed)
 	elseif bot.AIState == 4 then -- Attack
 		look_at_pos(bot:GetTarget():GetPos())
 		set_key(IN_ATTACK)
