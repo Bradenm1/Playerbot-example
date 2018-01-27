@@ -48,6 +48,17 @@ local WALKING_STATE = {
 }
 
 ----------------------------------------------------
+-- Walking State ENUM
+-- 0 Walking
+-- 1 Running
+----------------------------------------------------
+local ATTACKING_STATE = {
+	MELEE = 0,
+	SHOOTING = 1
+}
+
+
+----------------------------------------------------
 -- Driving State ENUM
 -- 0 Walking
 -- 1 Driving
@@ -110,7 +121,7 @@ end
 local function get_players_within_radius(pos, radius)
 	local players = {}
 	for ___, ply in pairs(ents.FindInSphere(pos, radius)) do 
-		if ((ply:IsPlayer()) && (ply ~= bot)) then table.insert(players, ply) end
+		if ((ply:IsPlayer()) && (bot:Visible(ply)) && (ply ~= bot)) then table.insert(players, ply) end
 	end
 	return players
 end
@@ -300,6 +311,7 @@ local function create_player_bot()
 	if (!game.SinglePlayer() && #player.GetAll() < game.MaxPlayers()) then
 		local bot = player.CreateNextBot( names[ math.random( #names ) ])
 		bot.IsBRBot = true
+		bot:SelectWeapon("weapon_physgun")
 		bot:SetAiState(FMS_STATE.WANDER) -- Default state
 	else print( "Cannot create bot. Are you in Single Player?" ) end
 end
@@ -308,7 +320,7 @@ end
 -- StartCommand
 -- StartCommand hook for controlling the bot
 ----------------------------------------------------
-hook.Add( "StartCommand", "Control_Bots", function( player, playerCMD )
+hook.Add("StartCommand", "Control_Bots", function(player, playerCMD)
 	if (!player.IsBRBot) then return false end
 	-- Set as bot currently being used
 	cmd = playerCMD
@@ -317,10 +329,21 @@ hook.Add( "StartCommand", "Control_Bots", function( player, playerCMD )
 	-- Clear movements and button presses as default they do use keys for some reason
 	cmd:ClearMovement()
 	cmd:ClearButtons()
-
 	-- Run the bot though the FSM
 	update_action()
 	perfom_action()
+end)
+
+----------------------------------------------------
+-- Timer, runs each second
+-- Respawns the bots if dead
+----------------------------------------------------
+timer.Create("Respawn_Bots", 1, 0, function()
+	for ___, ply in pairs(player.GetBots()) do 
+		if ((ply.IsBRBot) && (!ply:Alive())) then
+			ply:Spawn()
+		end
+	end
 end )
 
 ----------------------------------------------------	
